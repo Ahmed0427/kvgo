@@ -1,7 +1,7 @@
 # kvgo
 
 A really simple in-memory Redis-like server written in Go.  
-Implements basic Redis commands like `PING`, `SET`, `GET`, `HSET`, and `HGET` using the RESP (REdis Serialization Protocol) format — because parsing plain text is too mainstream.
+Implements basic Redis commands like `PING`, `SET`, `GET`, `HSET`, and `HGET` using the RESP (REdis Serialization Protocol) format. because parsing plain text is too mainstream.
 
 
 ### Getting Started
