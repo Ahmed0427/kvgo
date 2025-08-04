@@ -3,10 +3,9 @@ package main
 import (
 	"fmt"
 	"net"
+	"strings"
 	"os"
 	"io"
-	"bytes"
-	"strconv"
 )
 
 func main() {
@@ -25,26 +24,40 @@ func main() {
 	defer conn.Close()
 
 	for {
-		buf := make([]byte, 1024)
-
-		n, err := conn.Read(buf)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		codec := NewCodec(bytes.NewReader(buf[:n]))
+		codec := NewCodec(conn)
 		value, err := codec.Decode()
 		if err != nil {
+			if err == io.EOF {
+				return
+			}
 			fmt.Println(err)
-			os.Exit(1)
+			return
 		}
 
-		fmt.Println(strconv.Quote(string(buf[:n]))) 
-		fmt.Println(strconv.Quote(string(value.Encode()))) 
+		if value.kind != "array" {
+			fmt.Println("Invalid request, expected array")
+			continue
+		}
 
-		conn.Write([]byte("+OK\r\n"))
+		if len(value.array) == 0 {
+			fmt.Println("Invalid request, expected array length > 0")
+			continue
+		}
+
+		cmd := strings.ToUpper(value.array[0].bulk)
+		if cmd == "COMMAND" {
+			conn.Write(Value{kind: "string", str: ""}.Encode())
+			continue
+		}
+		args := value.array[1:]
+
+		handler, ok := Handlers[cmd]
+		if !ok {
+			fmt.Println("Invalid command:", cmd)
+			conn.Write(Value{kind: "string", str: ""}.Encode())
+			continue
+		}
+		var res Value = handler(args)	
+		conn.Write(res.Encode())
 	}
 }
