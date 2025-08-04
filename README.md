@@ -21,8 +21,6 @@ sudo systemctl stop redis
 ./kvgo
 ```
 
-----------
-
 ### Example Usage
 
 ```bash
