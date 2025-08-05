@@ -11,7 +11,6 @@ import (
 const (
 	STRING  = '+'
 	ERROR   = '-'
-	INTEGER = ':'
 	BULK    = '$'
 	ARRAY   = '*'
 )
@@ -21,7 +20,6 @@ type Value struct {
 	str   string
 	bulk  string
 	array []Value
-	num   int
 }
 
 func printValue(val Value, pad int) {
@@ -58,7 +56,11 @@ func (dec *Decoder) decodeArray() (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	dec.reader.ReadByte()
+
+	_, err = dec.reader.ReadByte()
+	if err != nil {
+		return Value{}, err
+	}
 
 	line = line[:len(line)-1]
 	length, err := strconv.Atoi(string(line))
@@ -83,16 +85,30 @@ func (dec *Decoder) decodeBulk() (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	dec.reader.ReadByte()
+
+	_, err = dec.reader.ReadByte()
+	if err != nil {
+		return Value{}, err
+	}
 
 	line = line[:len(line)-1]
-	length, err := strconv.Atoi(string(line))
+	length, _ := strconv.Atoi(string(line))
 
 	bulk := make([]byte, length)
-	dec.reader.Read(bulk)
+	_, err = dec.reader.Read(bulk)
+	if err != nil {
+		return Value{}, err
+	}
 
-	dec.reader.ReadByte()
-	dec.reader.ReadByte()
+	_, err = dec.reader.ReadByte()
+	if err != nil {
+		return Value{}, err
+	}
+
+	_, err = dec.reader.ReadByte()
+	if err != nil {
+		return Value{}, err
+	}
 
 	return Value{kind: "bulk", bulk: string(bulk)}, nil
 }

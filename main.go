@@ -26,19 +26,19 @@ func handle(conn net.Conn) {
 
 		if value.kind != "array" {
 			errMsg := "-ERR expected array"
-			conn.Write(Value{str: errMsg, kind: "error"}.Encode())
+			_, _ = conn.Write(Value{str: errMsg, kind: "error"}.Encode())
 			continue
 		}
 
 		if len(value.array) == 0 {
 			errMsg := "-ERR empty array"
-			conn.Write(Value{str: errMsg, kind: "error"}.Encode())
+			_, _ = conn.Write(Value{str: errMsg, kind: "error"}.Encode())
 			continue
 		}
 
 		cmd := strings.ToUpper(value.array[0].bulk)
 		if cmd == "COMMAND" {
-			conn.Write(Value{kind: "string", str: ""}.Encode())
+			_, _ = conn.Write(Value{kind: "string", str: ""}.Encode())
 			continue
 		}
 		args := value.array[1:]
@@ -46,16 +46,16 @@ func handle(conn net.Conn) {
 		handler, ok := Handlers[cmd]
 		if !ok {
 			errMsg := "-ERR unknown command"
-			conn.Write(Value{str: errMsg, kind: "error"}.Encode())
+			_, _ = conn.Write(Value{str: errMsg, kind: "error"}.Encode())
 			continue
 		}
 
 		if cmd == "SET" || cmd == "HSET" {
-			aof.Write(value)
+			_ = aof.Write(value)
 		}
 
 		var res Value = handler(args)	
-		conn.Write(res.Encode())
+		_, _ = conn.Write(res.Encode())
 	}
 }
 
@@ -69,7 +69,7 @@ func main() {
 	defer aof.Close()
 	
 	// Replay AOF
-	aof.Read(func(value Value) {
+	_ = aof.Read(func(value Value) {
 		cmd := strings.ToUpper(value.array[0].bulk)
 		args := value.array[1:]
 
