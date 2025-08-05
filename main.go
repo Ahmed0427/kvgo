@@ -8,58 +8,31 @@ import (
 	"io"
 )
 
-func main() {
-	lst, err := net.Listen("tcp", ":6379")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	defer lst.Close()
+var aof *AOF
 
-	conn, err := lst.Accept()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+func handle(conn net.Conn) {
 	defer conn.Close()
-
-	aof, err := newAOF("kvgodb.aof")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	defer aof.Close()
-
-	aof.Read(func(value Value) {
-		cmd := strings.ToUpper(value.array[0].bulk)
-		args := value.array[1:]
-
-		handler, ok := Handlers[cmd]
-		if !ok {
-			fmt.Println("Invalid command:", cmd)
-			return
-		}
-		handler(args)	
-	})
-
 	for {
 		dec := NewDecoder(conn)
 		value, err := dec.Decode()
 		if err != nil {
 			if err == io.EOF {
-				break
+				fmt.Printf("Client %s disconnected\n", conn.RemoteAddr())
+				return
 			}
-			fmt.Println(err)
-			os.Exit(1)
+			fmt.Println("Decode error:", err)
+			return
 		}
 
 		if value.kind != "array" {
-			fmt.Println("Invalid request, expected array")
+			errMsg := "-ERR expected array"
+			conn.Write(Value{str: errMsg, kind: "error"}.Encode())
 			continue
 		}
 
 		if len(value.array) == 0 {
-			fmt.Println("Invalid request, expected array length > 0")
+			errMsg := "-ERR empty array"
+			conn.Write(Value{str: errMsg, kind: "error"}.Encode())
 			continue
 		}
 
@@ -72,8 +45,8 @@ func main() {
 
 		handler, ok := Handlers[cmd]
 		if !ok {
-			fmt.Println("Invalid command:", cmd)
-			conn.Write(Value{kind: "string", str: ""}.Encode())
+			errMsg := "-ERR unknown command"
+			conn.Write(Value{str: errMsg, kind: "error"}.Encode())
 			continue
 		}
 
@@ -83,5 +56,46 @@ func main() {
 
 		var res Value = handler(args)	
 		conn.Write(res.Encode())
+	}
+}
+
+func main() {
+	var err error
+	aof, err = newAOF("kvgodb.aof")
+	if err != nil {
+		fmt.Println("AOF init error:", err)
+		os.Exit(1)
+	}
+	defer aof.Close()
+	
+	// Replay AOF
+	aof.Read(func(value Value) {
+		cmd := strings.ToUpper(value.array[0].bulk)
+		args := value.array[1:]
+
+		handler, ok := Handlers[cmd]
+		if !ok {
+			fmt.Println("Invalid command in AOF:", cmd)
+			return
+		}
+		handler(args)
+	})
+
+	lst, err := net.Listen("tcp", ":6379")
+	if err != nil {
+		fmt.Println("Listen error:", err)
+		os.Exit(1)
+	}
+	defer lst.Close()
+
+	fmt.Println("Server is listening on port 6379")
+
+	for {
+		conn, err := lst.Accept()
+		if err != nil {
+			fmt.Println("Accept error:", err)
+			continue
+		}
+		go handle(conn)
 	}
 }
