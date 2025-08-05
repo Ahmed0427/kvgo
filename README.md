@@ -5,7 +5,7 @@ Implements basic Redis commands like `PING`, `SET`, `GET`, `HSET`, and `HGET` us
 
 
 ### Getting Started
-- You'll need Go 1.18 or later. Who knows.
+- You'll need Go 1.18 or later. I think.
 - Then just run:
 
 ```bash
