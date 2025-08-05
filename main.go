@@ -24,8 +24,8 @@ func main() {
 	defer conn.Close()
 
 	for {
-		codec := NewCodec(conn)
-		value, err := codec.Decode()
+		dec := NewDecoder(conn)
+		value, err := dec.Decode()
 		if err != nil {
 			if err == io.EOF {
 				return

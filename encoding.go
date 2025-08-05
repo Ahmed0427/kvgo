@@ -7,6 +7,7 @@ import (
 	"strconv"
 )
 
+// RESP types
 const (
 	STRING  = '+'
 	ERROR   = '-'
@@ -44,20 +45,20 @@ func printValue(val Value, pad int) {
 	}
 }
 
-type Codec struct {
+type Decoder struct {
 	reader *bufio.Reader
 }
 
-func NewCodec(ioReader io.Reader) *Codec {
-	return &Codec{reader: bufio.NewReader(ioReader)}
+func NewDecoder(ioReader io.Reader) *Decoder {
+	return &Decoder{reader: bufio.NewReader(ioReader)}
 }
 
-func (codec *Codec) decodeArray() (Value, error) {
-	line, err := codec.reader.ReadSlice('\r')
+func (dec *Decoder) decodeArray() (Value, error) {
+	line, err := dec.reader.ReadSlice('\r')
 	if err != nil {
 		return Value{}, err
 	}
-	codec.reader.ReadByte()
+	dec.reader.ReadByte()
 
 	line = line[:len(line)-1]
 	length, err := strconv.Atoi(string(line))
@@ -67,7 +68,7 @@ func (codec *Codec) decodeArray() (Value, error) {
 
 	value := Value{kind: "array", array: make([]Value, length)}
 	for i := 0; i < length; i++ {
-		val, err := codec.Decode()
+		val, err := dec.Decode()
 		if err != nil {
 			return Value{}, err
 		}
@@ -77,36 +78,36 @@ func (codec *Codec) decodeArray() (Value, error) {
 	return value, nil
 }
 
-func (codec *Codec) decodeBulk() (Value, error) {
-	line, err := codec.reader.ReadSlice('\r')
+func (dec *Decoder) decodeBulk() (Value, error) {
+	line, err := dec.reader.ReadSlice('\r')
 	if err != nil {
 		return Value{}, err
 	}
-	codec.reader.ReadByte()
+	dec.reader.ReadByte()
 
 	line = line[:len(line)-1]
 	length, err := strconv.Atoi(string(line))
 
 	bulk := make([]byte, length)
-	codec.reader.Read(bulk)
+	dec.reader.Read(bulk)
 
-	codec.reader.ReadByte()
-	codec.reader.ReadByte()
+	dec.reader.ReadByte()
+	dec.reader.ReadByte()
 
 	return Value{kind: "bulk", bulk: string(bulk)}, nil
 }
 
-func (codec *Codec) Decode() (Value, error) {
-	kind, err := codec.reader.ReadByte()
+func (dec *Decoder) Decode() (Value, error) {
+	kind, err := dec.reader.ReadByte()
 	if err != nil {
 		return Value{}, err
 	}
 
 	switch kind {
 	case BULK:
-		return codec.decodeBulk()
+		return dec.decodeBulk()
 	case ARRAY:
-		return codec.decodeArray()
+		return dec.decodeArray()
 	default:
 		return Value{}, fmt.Errorf("Unkonwn Type %s\n", string(kind))
 	}
